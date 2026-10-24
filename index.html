@@ -3,189 +3,268 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Logo va matn qo'shish</title>
+<meta name="theme-color" content="#07110d">
+<title>Logo Studio</title>
+<link rel="preconnect" href="https://api.telegram.org">
+<link rel="preload" href="font.ttf" as="font" type="font/ttf" crossorigin>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="config.js"></script>
 <style>
-  @font-face { font-family: "BotFont"; src: url("font.ttf"); }
-  :root { --bg: var(--tg-theme-bg-color, #fff); --fg: var(--tg-theme-text-color, #111);
-    --hint: var(--tg-theme-hint-color, #888); --btn: var(--tg-theme-button-color, #2481cc);
-    --btnfg: var(--tg-theme-button-text-color, #fff); --sec: var(--tg-theme-secondary-bg-color, #f1f1f1); }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 14px; background: var(--bg); color: var(--fg);
-    font: 16px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
-  h1 { font-size: 18px; margin: 0; }
-  .btn { border: 0; border-radius: 12px; padding: 13px; font-size: 16px; cursor: pointer;
-    background: var(--btn); color: var(--btnfg); width: 100%; }
-  .btn.sec { background: var(--sec); color: var(--fg); }
-  .btn:disabled { opacity: .45; }
-  textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid var(--sec);
-    background: var(--sec); color: var(--fg); padding: 10px; font: inherit; resize: vertical; }
-  .row { display: flex; gap: 8px; }
-  .row .btn { flex: 1; }
-  .row .btn.on { background: var(--btn); color: var(--btnfg); }
-  canvas { width: 100%; height: auto; border-radius: 12px; background: var(--sec); display: none; }
-  .hint { color: var(--hint); font-size: 13px; }
+  @font-face { font-family: "BotFont"; src: url("font.ttf"); font-display: swap; }
+  :root { --bg:#07110d; --ink:#eaf5ee; --hint:#86a094; --line:rgba(255,255,255,.09); --glass:rgba(255,255,255,.055);
+    --brand:#1f6a40; --mint:#5ef0a8; --danger:#e5584a; --r:22px; --r2:14px; color-scheme: dark; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  body { padding:16px 14px calc(100px + env(safe-area-inset-bottom,0px)); min-height:100vh; overflow-x:hidden; }
+  button { font:inherit; color:inherit; border:0; cursor:pointer; background:none; }
+  :focus-visible { outline:2px solid var(--mint); outline-offset:2px; }
+
+  /* Orqa fon: faqat transform bilan siljiydi (GPU, tez) */
+  .aurora { position:fixed; inset:0; z-index:-1; overflow:hidden; background:radial-gradient(120% 80% at 50% 0%, #0f2a1e 0%, var(--bg) 60%); }
+  .blob { position:absolute; width:90vmax; height:90vmax; border-radius:50%; opacity:.5; will-change:transform; }
+  .b1 { background:radial-gradient(circle, #1f8a50 0%, transparent 62%); top:-35vmax; left:-30vmax; animation:d1 22s ease-in-out infinite alternate; }
+  .b2 { background:radial-gradient(circle, #0f7f78 0%, transparent 62%); bottom:-40vmax; right:-35vmax; animation:d2 28s ease-in-out infinite alternate; opacity:.42; }
+  .b3 { background:radial-gradient(circle, #6fb83a 0%, transparent 60%); top:30vh; left:25vw; width:60vmax; height:60vmax; animation:d3 34s ease-in-out infinite alternate; opacity:.2; }
+  @keyframes d1 { to { transform:translate3d(35vmax,22vmax,0) scale(1.15); } }
+  @keyframes d2 { to { transform:translate3d(-38vmax,-24vmax,0) scale(1.1); } }
+  @keyframes d3 { to { transform:translate3d(-30vmax,18vmax,0) scale(.85); } }
+  .paused .blob, .paused .frame::before, .paused .primary::after { animation-play-state:paused; }
+
+  .wrap { max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:14px; }
+  .up { animation:up .6s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i,0)*90ms); }
+  @keyframes up { from { opacity:0; transform:translateY(16px); } }
+
+  header { padding:4px 4px 2px; }
+  h1 { margin:0; font:700 26px/1.1 "BotFont",Georgia,serif; letter-spacing:.04em; }
+  header p { margin:4px 0 0; color:var(--hint); font-size:14px; }
+
+  /* Sahna + aylanuvchi yorug' hoshiya */
+  .frame { position:relative; padding:1.5px; border-radius:calc(var(--r) + 2px); overflow:hidden; background:var(--line); }
+  .frame::before { content:""; position:absolute; inset:-60%; will-change:transform;
+    background:conic-gradient(from 0deg, transparent 0 68%, rgba(94,240,168,.95) 84%, transparent 100%); animation:rot 7s linear infinite; }
+  @keyframes rot { to { transform:rotate(360deg); } }
+  .stage { position:relative; z-index:1; background:#0a1511; border-radius:var(--r); min-height:270px; display:grid; place-items:center; overflow:hidden; }
+  .drop { width:100%; min-height:270px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:24px; text-align:center; transition:background .25s; }
+  .drop.over { background:rgba(94,240,168,.1); }
+  .ic { width:64px; height:64px; border-radius:20px; display:grid; place-items:center; color:#fff;
+    background:linear-gradient(145deg,#2a9a5c,#1f6a40); box-shadow:0 10px 30px rgba(61,220,132,.28); animation:float 3.6s ease-in-out infinite; }
+  @keyframes float { 50% { transform:translateY(-6px); } }
+  .drop b { font-size:18px; } .drop span { color:var(--hint); font-size:14px; }
+  canvas { display:none; max-width:100%; max-height:58vh; width:auto; height:auto; }
+  .has-img canvas { display:block; animation:pop .45s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pop { from { opacity:0; transform:scale(.94); } }
+  .has-img .drop { display:none; }
+  .swap { position:absolute; top:10px; right:10px; z-index:2; display:none; align-items:center; gap:6px; padding:8px 13px; border-radius:999px;
+    font-size:14px; background:rgba(7,17,13,.78); border:1px solid var(--line); }
+  .has-img .swap { display:inline-flex; }
+
+  /* Boshqaruv paneli */
+  .panel { background:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.035)); border:1px solid var(--line);
+    border-radius:var(--r); padding:16px; display:flex; flex-direction:column; gap:16px; }
+  .fh { display:flex; justify-content:space-between; align-items:baseline; font-size:14px; color:var(--hint); margin-bottom:8px; }
+  textarea { width:100%; min-height:78px; resize:none; border-radius:var(--r2); border:1px solid var(--line); background:rgba(0,0,0,.3);
+    color:var(--ink); padding:12px 13px; font:700 17px/1.35 "BotFont",Georgia,serif; letter-spacing:.03em; transition:border-color .2s, box-shadow .2s; }
+  textarea:focus { outline:0; border-color:var(--mint); box-shadow:0 0 0 4px rgba(94,240,168,.15); }
+  textarea::placeholder { font:400 16px -apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:0; color:var(--hint); }
+  .seg { display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; }
+  .seg button { background:rgba(0,0,0,.28); border:1.5px solid transparent; border-radius:var(--r2); min-height:54px; padding:8px;
+    display:flex; align-items:center; justify-content:center; gap:9px; font-size:15px; transition:border-color .2s, background .2s, transform .12s; }
+  .seg button:active { transform:scale(.97); }
+  .seg button[aria-pressed="true"] { border-color:var(--mint); background:rgba(94,240,168,.1); }
+  .thumb { width:42px; height:36px; border-radius:9px; background:#6b7a73; display:grid; place-items:center; overflow:hidden; }
+  .thumb img { max-width:80%; max-height:80%; }
+  .sw { width:22px; height:22px; border-radius:50%; border:1px solid rgba(255,255,255,.35); }
+  input[type=range] { width:100%; accent-color:var(--mint); height:28px; margin:0; }
+
+  /* Pastki panel */
+  .bar { position:fixed; left:0; right:0; bottom:0; z-index:5; padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(180deg,rgba(7,17,13,0),rgba(7,17,13,.92) 38%); }
+  .bar .in { max-width:520px; margin:0 auto; display:flex; gap:10px; }
+  .primary { position:relative; overflow:hidden; flex:1; min-height:54px; border-radius:var(--r2); font-weight:700; font-size:16px;
+    background:linear-gradient(135deg,#2a9a5c,#1f6a40); box-shadow:0 8px 28px rgba(61,220,132,.3), inset 0 1px 0 rgba(255,255,255,.25);
+    display:flex; align-items:center; justify-content:center; gap:9px; transition:transform .12s, background .3s, box-shadow .3s; }
+  .primary:active { transform:scale(.97); }
+  .primary:not(:disabled)::after { content:""; position:absolute; top:0; bottom:0; width:40%; left:-60%; transform:skewX(-20deg);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent); animation:shine 3.8s ease-in-out infinite; }
+  @keyframes shine { 0%,55% { left:-60%; } 100% { left:130%; } }
+  .primary.ok { background:linear-gradient(135deg,#3cc37a,#2a9a5c); box-shadow:0 0 0 8px rgba(94,240,168,.18), 0 8px 28px rgba(61,220,132,.4); }
+  .ghost { width:54px; min-height:54px; border-radius:var(--r2); background:var(--glass); border:1px solid var(--line); display:grid; place-items:center; transition:transform .12s; }
+  .ghost:active { transform:scale(.94); }
+  button:disabled { opacity:.38; cursor:default; }
+  .spin { width:18px; height:18px; border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:sp .7s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .toast { position:fixed; left:50%; bottom:calc(88px + env(safe-area-inset-bottom,0px)); z-index:9; transform:translate(-50%,12px); max-width:90%;
+    background:#16231d; border:1px solid var(--line); padding:11px 15px; border-radius:13px; font-size:14px; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
+  .toast.show { opacity:1; transform:translate(-50%,0); } .toast.err { background:var(--danger); border-color:transparent; }
+  @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
 <div class="wrap">
-  <h1>Rasmga logo va matn qo'shish</h1>
   <input id="file" type="file" accept="image/*" hidden>
-  <button class="btn sec" id="pick">📷 Rasm tanlash</button>
-  <textarea id="caption" placeholder="Rasm ustiga yoziladigan matn..."></textarea>
-  <div class="row">
-    <button class="btn on" id="l1">Logo 1</button>
-    <button class="btn sec" id="l2">Logo 2</button>
+  <header class="up" style="--i:0"><h1>Logo Studio</h1><p>Rasmga logo va matn qo'shing, bir zumda tayyor.</p></header>
+
+  <div class="frame up" style="--i:1"><div class="stage" id="stage">
+    <button class="drop" id="drop" type="button">
+      <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-4.5-4.5L6 21"/></svg></div>
+      <b>Rasm tanlang</b><span>Galereyadan yoki kameradan</span>
+    </button>
+    <canvas id="cv"></canvas>
+    <button class="swap" id="swap" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>Boshqa rasm</button>
+  </div></div>
+
+  <div class="panel up" style="--i:2">
+    <div><div class="fh"><label for="caption">Rasm ustidagi matn</label><span id="count">0</span></div>
+      <textarea id="caption" maxlength="300" placeholder="Matnni shu yerga yozing"></textarea></div>
+    <div><div class="fh">Logo</div><div class="seg" id="logos">
+      <button type="button" data-v="1" aria-pressed="true"><span class="thumb"><img src="logo1.png" alt=""></span>Logo 1</button>
+      <button type="button" data-v="2" aria-pressed="false"><span class="thumb"><img src="logo2.png" alt=""></span>Logo 2</button></div></div>
+    <div><div class="fh">Matn rangi</div><div class="seg" id="colors">
+      <button type="button" data-v="black" aria-pressed="true"><span class="sw" style="background:#000"></span>Qora</button>
+      <button type="button" data-v="white" aria-pressed="false"><span class="sw" style="background:#fff"></span>Oq</button></div></div>
+    <div><div class="fh"><label for="size">Matn o'lchami</label><span id="sizeV">100%</span></div>
+      <input type="range" id="size" min="70" max="180" step="5" value="100"></div>
   </div>
-  <canvas id="cv"></canvas>
-  <button class="btn" id="save" disabled>⬇️ Yuklab olish</button>
-  <button class="btn" id="send" disabled>🤖 Botga yuborish</button>
-  <button class="btn sec" id="share" disabled style="display:none">📤 Ulashish</button>
-  <div class="hint" id="msg"></div>
 </div>
+
+<div class="bar"><div class="in up" style="--i:3">
+  <button class="ghost" id="save" disabled aria-label="Rasmni saqlash" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4.5-4.5M12 15l4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></button>
+  <button class="primary" id="send" disabled type="button"><span id="sendLabel">Botga yuborish</span></button>
+</div></div>
+<div class="toast" id="toast" role="status"></div>
+
 <script>
 const tg = window.Telegram && Telegram.WebApp;
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("#07110d"); tg.setBackgroundColor("#07110d"); tg.setBottomBarColor("#07110d"); } catch (e) {} }
+const hap = (k, v) => { try { tg.HapticFeedback[k](v); } catch (e) {} };
+// Ekran ko'rinmay qolsa, animatsiya to'xtaydi (batareya va tezlik)
+document.addEventListener("visibilitychange", () => document.body.classList.toggle("paused", document.hidden));
 
-// Botdagi sozlamalar bilan bir xil (rasm kengligiga nisbatan)
-const LOGO_H = 0.094, LOGO_MAXW = 0.50, LOGO_M = 0.025;
-const CAP = 0.027, TX = 0.034, TY = 0.023, TMAXW = 0.85;
-const MAXDIM = 1600, QUALITY = 0.9;
-
+const LOGO_H = .094, LOGO_MAXW = .5, LOGO_M = .025, CAP = .027, TX = .034, TY = .023, TMAXW = .85;
+const BASE_MAX = 1600, PREVIEW_MAX = 1100;
 const $ = id => document.getElementById(id);
-const cv = $("cv"), ctx = cv.getContext("2d");
-let img = null, logoChoice = "1", fontReady = false;
+const cv = $("cv"), base = document.createElement("canvas");
+let hasImg = false, logoChoice = "1", textColor = "black", textScale = 1, fontReady = false;
 const logos = {};
 
-function loadImg(src) {
-  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
-}
-// Logoning shaffof bo'sh chetlarini kesib tashlaydi
+const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 function cropLogo(im) {
   const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
   const x = c.getContext("2d"); x.drawImage(im, 0, 0);
   const d = x.getImageData(0, 0, c.width, c.height).data;
-  let minX = c.width, minY = c.height, maxX = -1, maxY = -1;
+  let a = c.width, b = c.height, e = -1, f = -1;
   for (let y = 0; y < c.height; y++) for (let xx = 0; xx < c.width; xx++)
-    if (d[(y * c.width + xx) * 4 + 3] > 0) { if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; if (y < minY) minY = y; if (y > maxY) maxY = y; }
-  if (maxX < 0) return im;
-  const o = document.createElement("canvas"); o.width = maxX - minX + 1; o.height = maxY - minY + 1;
-  o.getContext("2d").drawImage(c, minX, minY, o.width, o.height, 0, 0, o.width, o.height);
+    if (d[(y * c.width + xx) * 4 + 3] > 0) { if (xx < a) a = xx; if (xx > e) e = xx; if (y < b) b = y; if (y > f) f = y; }
+  if (e < 0) return im;
+  const o = document.createElement("canvas"); o.width = e - a + 1; o.height = f - b + 1;
+  o.getContext("2d").drawImage(c, a, b, o.width, o.height, 0, 0, o.width, o.height);
   return o;
 }
 async function init() {
-  try { await document.fonts.load('100px BotFont'); fontReady = true; } catch (e) {}
-  for (const k of ["1", "2"]) { try { logos[k] = cropLogo(await loadImg(`logo${k}.png`)); } catch (e) {} }
-  if (img) render();
+  const [f1, f2] = await Promise.all([
+    document.fonts.load("100px BotFont").then(() => true, () => false),
+    Promise.all(["1", "2"].map(k => loadImg(`logo${k}.png`).then(i => logos[k] = cropLogo(i), () => {})))
+  ]);
+  fontReady = f1; if (hasImg) render();
 }
-function wrap(text, maxW) {
+function wrap(x, text, maxW) {
   const lines = [];
   for (const p of text.split("\n")) {
     let line = "";
-    for (const word of p.split(/\s+/).filter(Boolean)) {
-      const t = (line + " " + word).trim();
-      if (ctx.measureText(t).width <= maxW) line = t; else { if (line) lines.push(line); line = word; }
+    for (const w of p.split(/\s+/).filter(Boolean)) {
+      const t = (line + " " + w).trim();
+      if (x.measureText(t).width <= maxW) line = t; else { if (line) lines.push(line); line = w; }
     }
     lines.push(line);
   }
   return lines;
 }
-function render() {
-  if (!img) return;
-  let w = img.naturalWidth, h = img.naturalHeight;
-  const s = Math.min(1, MAXDIM / Math.max(w, h));
-  w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
-  cv.width = w; cv.height = h; cv.style.display = "block";
-  ctx.drawImage(img, 0, 0, w, h);
-
-  // Logo: chap yuqori
+// Bitta chizish funksiyasi: ko'rinish (kichik) ham, yuboriladigan rasm (to'liq) ham shundan chiqadi
+function paint(c, maxDim) {
+  const s = Math.min(1, maxDim / Math.max(base.width, base.height));
+  const w = Math.max(1, Math.round(base.width * s)), h = Math.max(1, Math.round(base.height * s));
+  if (c.width !== w) c.width = w; if (c.height !== h) c.height = h;
+  const x = c.getContext("2d");
+  x.drawImage(base, 0, 0, w, h);
   const logo = logos[logoChoice];
   if (logo) {
     let lh = Math.round(w * LOGO_H), lw = Math.max(1, Math.round(logo.width * lh / logo.height));
-    const maxw = Math.round(w * LOGO_MAXW);
-    if (lw > maxw) { lw = maxw; lh = Math.max(1, Math.round(logo.height * lw / logo.width)); }
-    const m = Math.round(w * LOGO_M);
-    ctx.drawImage(logo, m, m, lw, lh);
+    const mw = Math.round(w * LOGO_MAXW);
+    if (lw > mw) { lw = mw; lh = Math.max(1, Math.round(logo.height * lw / logo.width)); }
+    const m = Math.round(w * LOGO_M); x.drawImage(logo, m, m, lw, lh);
   }
-  // Matn: o'ng pastki
   const text = $("caption").value.trim();
-  if (text) {
-    const fam = fontReady ? "BotFont" : "Arial, sans-serif";
-    ctx.font = `bold 100px ${fam}`;
-    const capAt100 = Math.max(ctx.measureText("H").actualBoundingBoxAscent, 1);
-    const size = Math.max(8, Math.round(100 * (w * CAP) / capAt100));
-    ctx.font = `bold ${size}px ${fam}`;
-    ctx.fillStyle = "black"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
-    const lines = wrap(text, w * TMAXW), lineH = size * 1.2;
-    const x = w - Math.round(w * TX);
-    let y = h - Math.round(w * TY) - (lines.length - 1) * lineH;
-    for (const ln of lines) { ctx.fillText(ln, x, y); y += lineH; }
-  }
-  $("save").disabled = false;
-  $("share").disabled = false;
-  $("send").disabled = false;
+  if (!text) return;
+  const fam = fontReady ? "BotFont" : "Arial, sans-serif";
+  x.font = `bold 100px ${fam}`;
+  const cap100 = Math.max(x.measureText("H").actualBoundingBoxAscent, 1);
+  const size = Math.max(8, Math.round(100 * (w * CAP * textScale) / cap100));
+  x.font = `bold ${size}px ${fam}`; x.fillStyle = textColor; x.textAlign = "right"; x.textBaseline = "alphabetic";
+  const lines = wrap(x, text, w * TMAXW), lh2 = size * 1.2, px = w - Math.round(w * TX);
+  let y = h - Math.round(w * TY) - (lines.length - 1) * lh2;
+  for (const ln of lines) { x.fillText(ln, px, y); y += lh2; }
 }
-function toBlob() { return new Promise(r => cv.toBlob(r, "image/jpeg", QUALITY)); }
+let raf = 0;
+function render() { if (!hasImg || raf) return; raf = requestAnimationFrame(() => { raf = 0; paint(cv, PREVIEW_MAX); }); }
+function exportBlob() { const c = document.createElement("canvas"); paint(c, BASE_MAX); return new Promise(r => c.toBlob(r, "image/jpeg", .92)); }
 
-$("pick").onclick = () => $("file").click();
-$("file").onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  const url = URL.createObjectURL(f);
-  try { img = await loadImg(url); render(); $("msg").textContent = ""; }
-  catch (err) { $("msg").textContent = "Rasmni ochib bo'lmadi."; }
-};
-$("caption").oninput = render;
-function setLogo(k) {
-  logoChoice = k;
-  $("l1").className = "btn " + (k === "1" ? "on" : "sec");
-  $("l2").className = "btn " + (k === "2" ? "on" : "sec");
-  render();
+let tt;
+function toast(msg, err) { const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => t.className = "toast", 3200); }
+
+async function setImage(f) {
+  if (!f) return;
+  try {
+    let bmp;
+    try { bmp = await createImageBitmap(f, { imageOrientation: "from-image" }); }
+    catch (e) { bmp = await loadImg(URL.createObjectURL(f)); }
+    const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, s = Math.min(1, BASE_MAX / Math.max(w0, h0));
+    base.width = Math.round(w0 * s); base.height = Math.round(h0 * s);
+    base.getContext("2d").drawImage(bmp, 0, 0, base.width, base.height);
+    if (bmp.close) bmp.close();
+    hasImg = true; $("stage").classList.add("has-img"); $("save").disabled = $("send").disabled = false;
+    cv.style.animation = "none"; void cv.offsetWidth; cv.style.animation = "";   // har yangi rasmda "pop" effekti
+    render(); hap("impactOccurred", "light");
+  } catch (e) { toast("Rasmni ochib bo'lmadi. Boshqa rasm tanlang.", true); }
 }
-$("l1").onclick = () => setLogo("1");
-$("l2").onclick = () => setLogo("2");
+$("drop").onclick = $("swap").onclick = () => $("file").click();
+$("file").onchange = e => { setImage(e.target.files[0]); e.target.value = ""; };
+const dz = $("drop");
+["dragover", "dragenter"].forEach(n => dz.addEventListener(n, e => { e.preventDefault(); dz.classList.add("over"); }));
+["dragleave", "drop"].forEach(n => dz.addEventListener(n, e => { e.preventDefault(); dz.classList.remove("over"); }));
+dz.addEventListener("drop", e => setImage(e.dataTransfer.files[0]));
+
+$("caption").oninput = () => { $("count").textContent = $("caption").value.length; render(); };
+$("size").oninput = e => { textScale = e.target.value / 100; $("sizeV").textContent = e.target.value + "%"; render(); };
+function seg(id, cb) {
+  $(id).onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $(id).querySelectorAll("button").forEach(z => z.setAttribute("aria-pressed", z === b));
+    cb(b.dataset.v); render(); hap("selectionChanged");
+  };
+}
+seg("logos", v => logoChoice = v); seg("colors", v => textColor = v);
 
 $("save").onclick = async () => {
-  const blob = await toBlob(), url = URL.createObjectURL(blob);
-  // Telegram ichida: rasm shu yerning o'zida ochiladi, bosib turib saqlash mumkin
-  if (tg && tg.downloadFile && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && /^https?:/.test(location.href)) {
-    // downloadFile faqat ommaviy URL qabul qiladi, shuning uchun data URL bilan sinab ko'ramiz
-    const r = new FileReader();
-    r.onload = () => { try { tg.downloadFile({ url: r.result, file_name: "result.jpg" }); } catch (e) { fallback(url); } };
-    r.readAsDataURL(blob);
-    return;
-  }
-  fallback(url);
+  const blob = await exportBlob(), file = new File([blob], "result.jpg", { type: "image/jpeg" });
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "result.jpg";
+  document.body.appendChild(a); a.click(); a.remove(); toast("Yuklanmasa, «Botga yuborish» dan foydalaning.");
 };
-function fallback(url) {
-  const a = document.createElement("a"); a.href = url; a.download = "result.jpg";
-  document.body.appendChild(a); a.click(); a.remove();
-  $("msg").textContent = "Yuklanmasa, rasmni bosib turing va «Saqlash» yoki «Ulashish» ni tanlang.";
-}
-// Ulashish (telefonlarda "Telegram", "Galereya" va hokazoga yuborish)
-if (navigator.canShare) $("share").style.display = "block";
-$("share").onclick = async () => {
-  const blob = await toBlob(), file = new File([blob], "result.jpg", { type: "image/jpeg" });
-  try { if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); } catch (e) {}
-};
-// ---- Botga yuborish ----
-// DIQQAT: tokenni faqat LOGO botiniki qo'ying (Pul yig'ish botiniki emas!)
-const BOT_TOKEN = "8905452846:AAEwf8sYDO2IDDq7h3AplmsF6wOqlJbwC3Q";
+
 $("send").onclick = async () => {
   const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
-  if (!user) { $("msg").textContent = "Bu tugma faqat Telegram ichida ishlaydi."; return; }
-  if (BOT_TOKEN === "BU_YERGA_TOKEN") { $("msg").textContent = "Token kiritilmagan."; return; }
-  $("send").disabled = true; $("msg").textContent = "Yuborilmoqda...";
+  if (!user) return toast("Bu tugma faqat Telegram ichida ishlaydi.", true);
+  if (typeof BOT_TOKEN === "undefined" || BOT_TOKEN === "BU_YERGA_TOKEN") return toast("config.js da token kiritilmagan.", true);
+  const btn = $("send"), lab = $("sendLabel"), idle = "Botga yuborish";
+  btn.disabled = true; lab.innerHTML = '<span class="spin"></span>Yuborilmoqda';
   try {
-    const blob = await toBlob();
-    const fd = new FormData();
-    fd.append("chat_id", user.id);
-    fd.append("document", blob, "result.jpg");   // fayl sifatida: sifat pasaymaydi
-    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method: "POST", body: fd });
-    const j = await r.json();
-    $("msg").textContent = j.ok ? "✅ Yuborildi! Bot chatini tekshiring." : "Xato: " + (j.description || "noma'lum") + " (botda Start bosganmisiz?)";
-  } catch (e) { $("msg").textContent = "Yuborib bo'lmadi, internetni tekshiring."; }
-  $("send").disabled = false;
+    const fd = new FormData(); fd.append("chat_id", user.id); fd.append("document", await exportBlob(), "result.jpg");
+    const j = await (await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method: "POST", body: fd })).json();
+    if (j.ok) { btn.classList.add("ok"); lab.textContent = "Yuborildi ✓"; hap("notificationOccurred", "success"); toast("Bot chatiga yuborildi."); }
+    else { lab.textContent = idle; hap("notificationOccurred", "error"); toast("Yuborilmadi: botda Start tugmasini bosing.", true); }
+  } catch (e) { lab.textContent = idle; hap("notificationOccurred", "error"); toast("Internet yo'q. Qayta urinib ko'ring.", true); }
+  setTimeout(() => { btn.classList.remove("ok"); lab.textContent = idle; btn.disabled = false; }, 2200);
 };
 init();
 </script>
