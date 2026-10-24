@@ -40,6 +40,7 @@
   </div>
   <canvas id="cv"></canvas>
   <button class="btn" id="save" disabled>⬇️ Yuklab olish</button>
+  <button class="btn" id="send" disabled>🤖 Botga yuborish</button>
   <button class="btn sec" id="share" disabled style="display:none">📤 Ulashish</button>
   <div class="hint" id="msg"></div>
 </div>
@@ -123,6 +124,7 @@ function render() {
   }
   $("save").disabled = false;
   $("share").disabled = false;
+  $("send").disabled = false;
 }
 function toBlob() { return new Promise(r => cv.toBlob(r, "image/jpeg", QUALITY)); }
 
@@ -165,6 +167,25 @@ if (navigator.canShare) $("share").style.display = "block";
 $("share").onclick = async () => {
   const blob = await toBlob(), file = new File([blob], "result.jpg", { type: "image/jpeg" });
   try { if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); } catch (e) {}
+};
+// ---- Botga yuborish ----
+// DIQQAT: tokenni faqat LOGO botiniki qo'ying (Pul yig'ish botiniki emas!)
+const BOT_TOKEN = "8905452846:AAEwf8sYDO2IDDq7h3AplmsF6wOqlJbwC3Q";
+$("send").onclick = async () => {
+  const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  if (!user) { $("msg").textContent = "Bu tugma faqat Telegram ichida ishlaydi."; return; }
+  if (BOT_TOKEN === "BU_YERGA_TOKEN") { $("msg").textContent = "Token kiritilmagan."; return; }
+  $("send").disabled = true; $("msg").textContent = "Yuborilmoqda...";
+  try {
+    const blob = await toBlob();
+    const fd = new FormData();
+    fd.append("chat_id", user.id);
+    fd.append("document", blob, "result.jpg");   // fayl sifatida: sifat pasaymaydi
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method: "POST", body: fd });
+    const j = await r.json();
+    $("msg").textContent = j.ok ? "✅ Yuborildi! Bot chatini tekshiring." : "Xato: " + (j.description || "noma'lum") + " (botda Start bosganmisiz?)";
+  } catch (e) { $("msg").textContent = "Yuborib bo'lmadi, internetni tekshiring."; }
+  $("send").disabled = false;
 };
 init();
 </script>
