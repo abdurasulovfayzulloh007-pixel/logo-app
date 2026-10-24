@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Logo va matn qo'shish</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  @font-face { font-family: "BotFont"; src: url("font.ttf"); }
+  :root { --bg: var(--tg-theme-bg-color, #fff); --fg: var(--tg-theme-text-color, #111);
+    --hint: var(--tg-theme-hint-color, #888); --btn: var(--tg-theme-button-color, #2481cc);
+    --btnfg: var(--tg-theme-button-text-color, #fff); --sec: var(--tg-theme-secondary-bg-color, #f1f1f1); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 14px; background: var(--bg); color: var(--fg);
+    font: 16px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 18px; margin: 0; }
+  .btn { border: 0; border-radius: 12px; padding: 13px; font-size: 16px; cursor: pointer;
+    background: var(--btn); color: var(--btnfg); width: 100%; }
+  .btn.sec { background: var(--sec); color: var(--fg); }
+  .btn:disabled { opacity: .45; }
+  textarea { width: 100%; min-height: 80px; border-radius: 12px; border: 1px solid var(--sec);
+    background: var(--sec); color: var(--fg); padding: 10px; font: inherit; resize: vertical; }
+  .row { display: flex; gap: 8px; }
+  .row .btn { flex: 1; }
+  .row .btn.on { background: var(--btn); color: var(--btnfg); }
+  canvas { width: 100%; height: auto; border-radius: 12px; background: var(--sec); display: none; }
+  .hint { color: var(--hint); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rasmga logo va matn qo'shish</h1>
+  <input id="file" type="file" accept="image/*" hidden>
+  <button class="btn sec" id="pick">📷 Rasm tanlash</button>
+  <textarea id="caption" placeholder="Rasm ustiga yoziladigan matn..."></textarea>
+  <div class="row">
+    <button class="btn on" id="l1">Logo 1</button>
+    <button class="btn sec" id="l2">Logo 2</button>
+  </div>
+  <canvas id="cv"></canvas>
+  <button class="btn" id="save" disabled>⬇️ Yuklab olish</button>
+  <button class="btn sec" id="share" disabled style="display:none">📤 Ulashish</button>
+  <div class="hint" id="msg"></div>
+</div>
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+// Botdagi sozlamalar bilan bir xil (rasm kengligiga nisbatan)
+const LOGO_H = 0.094, LOGO_MAXW = 0.50, LOGO_M = 0.025;
+const CAP = 0.027, TX = 0.034, TY = 0.023, TMAXW = 0.85;
+const MAXDIM = 1600, QUALITY = 0.9;
+
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d");
+let img = null, logoChoice = "1", fontReady = false;
+const logos = {};
+
+function loadImg(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+}
+// Logoning shaffof bo'sh chetlarini kesib tashlaydi
+function cropLogo(im) {
+  const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+  const x = c.getContext("2d"); x.drawImage(im, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height).data;
+  let minX = c.width, minY = c.height, maxX = -1, maxY = -1;
+  for (let y = 0; y < c.height; y++) for (let xx = 0; xx < c.width; xx++)
+    if (d[(y * c.width + xx) * 4 + 3] > 0) { if (xx < minX) minX = xx; if (xx > maxX) maxX = xx; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  if (maxX < 0) return im;
+  const o = document.createElement("canvas"); o.width = maxX - minX + 1; o.height = maxY - minY + 1;
+  o.getContext("2d").drawImage(c, minX, minY, o.width, o.height, 0, 0, o.width, o.height);
+  return o;
+}
+async function init() {
+  try { await document.fonts.load('100px BotFont'); fontReady = true; } catch (e) {}
+  for (const k of ["1", "2"]) { try { logos[k] = cropLogo(await loadImg(`logo${k}.png`)); } catch (e) {} }
+  if (img) render();
+}
+function wrap(text, maxW) {
+  const lines = [];
+  for (const p of text.split("\n")) {
+    let line = "";
+    for (const word of p.split(/\s+/).filter(Boolean)) {
+      const t = (line + " " + word).trim();
+      if (ctx.measureText(t).width <= maxW) line = t; else { if (line) lines.push(line); line = word; }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+function render() {
+  if (!img) return;
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const s = Math.min(1, MAXDIM / Math.max(w, h));
+  w = Math.max(1, Math.round(w * s)); h = Math.max(1, Math.round(h * s));
+  cv.width = w; cv.height = h; cv.style.display = "block";
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // Logo: chap yuqori
+  const logo = logos[logoChoice];
+  if (logo) {
+    let lh = Math.round(w * LOGO_H), lw = Math.max(1, Math.round(logo.width * lh / logo.height));
+    const maxw = Math.round(w * LOGO_MAXW);
+    if (lw > maxw) { lw = maxw; lh = Math.max(1, Math.round(logo.height * lw / logo.width)); }
+    const m = Math.round(w * LOGO_M);
+    ctx.drawImage(logo, m, m, lw, lh);
+  }
+  // Matn: o'ng pastki
+  const text = $("caption").value.trim();
+  if (text) {
+    const fam = fontReady ? "BotFont" : "Arial, sans-serif";
+    ctx.font = `bold 100px ${fam}`;
+    const capAt100 = Math.max(ctx.measureText("H").actualBoundingBoxAscent, 1);
+    const size = Math.max(8, Math.round(100 * (w * CAP) / capAt100));
+    ctx.font = `bold ${size}px ${fam}`;
+    ctx.fillStyle = "black"; ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+    const lines = wrap(text, w * TMAXW), lineH = size * 1.2;
+    const x = w - Math.round(w * TX);
+    let y = h - Math.round(w * TY) - (lines.length - 1) * lineH;
+    for (const ln of lines) { ctx.fillText(ln, x, y); y += lineH; }
+  }
+  $("save").disabled = false;
+  $("share").disabled = false;
+}
+function toBlob() { return new Promise(r => cv.toBlob(r, "image/jpeg", QUALITY)); }
+
+$("pick").onclick = () => $("file").click();
+$("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f);
+  try { img = await loadImg(url); render(); $("msg").textContent = ""; }
+  catch (err) { $("msg").textContent = "Rasmni ochib bo'lmadi."; }
+};
+$("caption").oninput = render;
+function setLogo(k) {
+  logoChoice = k;
+  $("l1").className = "btn " + (k === "1" ? "on" : "sec");
+  $("l2").className = "btn " + (k === "2" ? "on" : "sec");
+  render();
+}
+$("l1").onclick = () => setLogo("1");
+$("l2").onclick = () => setLogo("2");
+
+$("save").onclick = async () => {
+  const blob = await toBlob(), url = URL.createObjectURL(blob);
+  // Telegram ichida: rasm shu yerning o'zida ochiladi, bosib turib saqlash mumkin
+  if (tg && tg.downloadFile && tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && /^https?:/.test(location.href)) {
+    // downloadFile faqat ommaviy URL qabul qiladi, shuning uchun data URL bilan sinab ko'ramiz
+    const r = new FileReader();
+    r.onload = () => { try { tg.downloadFile({ url: r.result, file_name: "result.jpg" }); } catch (e) { fallback(url); } };
+    r.readAsDataURL(blob);
+    return;
+  }
+  fallback(url);
+};
+function fallback(url) {
+  const a = document.createElement("a"); a.href = url; a.download = "result.jpg";
+  document.body.appendChild(a); a.click(); a.remove();
+  $("msg").textContent = "Yuklanmasa, rasmni bosib turing va «Saqlash» yoki «Ulashish» ni tanlang.";
+}
+// Ulashish (telefonlarda "Telegram", "Galereya" va hokazoga yuborish)
+if (navigator.canShare) $("share").style.display = "block";
+$("share").onclick = async () => {
+  const blob = await toBlob(), file = new File([blob], "result.jpg", { type: "image/jpeg" });
+  try { if (navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); } catch (e) {}
+};
+init();
+</script>
+</body>
+</html>
