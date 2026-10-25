@@ -61,11 +61,6 @@
   .has-img .drop { display:none; }
   .swap { position:absolute; top:10px; right:10px; z-index:2; display:none; align-items:center; gap:6px; padding:8px 13px; border-radius:999px; font-size:14px; color:#fff; background:rgba(7,17,13,.78); border:1px solid rgba(255,255,255,.15); }
   .has-img .swap { display:inline-flex; }
-  .orig { position:absolute; left:10px; bottom:10px; z-index:2; display:none; align-items:center; gap:7px; padding:9px 14px; border-radius:999px; font-size:14px; color:#fff;
-    background:rgba(7,17,13,.78); border:1px solid rgba(255,255,255,.15); user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none;
-    transition:background .2s, transform .15s cubic-bezier(.3,1.5,.5,1); }
-  .has-img .orig { display:inline-flex; }
-  .orig.on { background:var(--brand); border-color:var(--mint); transform:scale(1.06); box-shadow:0 0 0 4px rgba(94,240,168,.22); }
 
   .panel { background:linear-gradient(180deg,var(--gA),var(--gB)); border:1px solid var(--line); border-radius:var(--r); padding:12px 16px 16px; display:flex; flex-direction:column; gap:16px; }
   .tabs { position:relative; display:grid; grid-template-columns:repeat(3,1fr); background:var(--field); border-radius:var(--r2); padding:4px; --n:0; }
@@ -97,6 +92,8 @@
   .grid9 button:active { transform:scale(.88); }
   .grid9 button[aria-pressed="true"] { background:rgba(94,240,168,.14); border-color:var(--mint); }
   .grid9 button[aria-pressed="true"]::after { background:var(--mint); opacity:1; box-shadow:0 0 10px var(--mint); transform:scale(1.35); }
+  #logos button { white-space:nowrap; }
+  #logos.many button { flex-direction:column; gap:6px; min-height:78px; font-size:13px; }
   .note { color:var(--hint); font-size:14px; margin:0; }
 
   .bar { position:fixed; left:0; right:0; bottom:0; z-index:5; padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px)); background:linear-gradient(180deg,transparent,var(--fade) 38%); }
@@ -136,7 +133,7 @@
   .tabs .ind { box-shadow:0 6px 16px rgba(61,220,132,.4), inset 0 1px 0 rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.2); }
   .frame { box-shadow:0 22px 56px rgba(0,0,0,.42), 0 0 70px rgba(94,240,168,.15); }
   [data-theme="light"] .frame { box-shadow:0 18px 44px rgba(25,70,45,.24), 0 0 60px rgba(31,138,80,.14); }
-  .theme, .ghost, .swap, .orig { -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
+  .theme, .ghost, .swap { -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur); }
   .theme, .ghost { box-shadow:0 6px 16px var(--lo), inset 0 1px 0 var(--hl); }
   .primary { box-shadow:0 10px 30px rgba(61,220,132,.4), inset 0 1px 0 rgba(255,255,255,.4), inset 0 -3px 7px rgba(0,0,0,.25); }
   .bar { padding-top:36px; background:linear-gradient(180deg,transparent,var(--fade) 55%); -webkit-backdrop-filter:var(--blur); backdrop-filter:var(--blur);
@@ -165,9 +162,6 @@
     </button>
     <canvas id="cv"></canvas>
     <button class="swap" id="swap" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>Boshqa rasm</button>
-    <button class="orig" id="orig" type="button" aria-label="Oldin va keyinni solishtirish">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-      <span id="origT">Oldin / Keyin</span></button>
   </div></div>
 
   <div class="panel up" style="--i:2">
@@ -187,9 +181,7 @@
     </section>
 
     <section class="pane" data-p="logo" hidden>
-      <div><div class="fh">Logo tanlang</div><div class="seg" id="logos">
-        <button type="button" data-v="1" aria-pressed="true"><span class="thumb"><img src="logo1.png" alt=""></span>Logo 1</button>
-        <button type="button" data-v="2" aria-pressed="false"><span class="thumb"><img src="logo2.png" alt=""></span>Logo 2</button></div></div>
+      <div><div class="fh">Logo tanlang</div><div class="seg" id="logos"></div></div>
       <div><div class="fh"><label for="lsize">Logo o'lchami</label><span id="lsizeV">100%</span></div><input type="range" id="lsize" min="50" max="170" step="5" value="100"></div>
       <div><div class="fh">Logo joyi</div><div class="grid9" id="gLogo"></div></div>
     </section>
@@ -238,13 +230,13 @@ const LOGO_H = .094, LOGO_MAXW = .5, LOGO_M = .025, CAP = .027, TX = .034, TY = 
 const BASE_MAX = 2400, PREVIEW_MAX = 1100, EXPORT_MAX = 1920;
 const cv = $("cv"), base = document.createElement("canvas");
 const S = { logo: "1", color: "black", tscale: 1, lscale: 1, lpos: "tl", tpos: "br", aspect: 0, fx: .5, fy: .5 };
-let hasImg = false, fontReady = false, pannable = false, showOrig = false, cmp = false, split = .5;
+let hasImg = false, fontReady = false, pannable = false;
 const logos = {};
 
 // ---- Sozlamalarni eslab qolish (shu qurilmada) ----
 try {
   const o = JSON.parse(localStorage.getItem("settings") || "{}"), num = (v, a, b) => typeof v === "number" && v >= a && v <= b;
-  if (o.logo === "1" || o.logo === "2") S.logo = o.logo;
+  if (/^[1-3]$/.test(o.logo || "")) S.logo = o.logo;
   if (o.color === "black" || o.color === "white") S.color = o.color;
   if (num(o.tscale, .7, 1.8)) S.tscale = o.tscale;
   if (num(o.lscale, .5, 1.7)) S.lscale = o.lscale;
@@ -267,10 +259,19 @@ function cropLogo(im) {
   return o;
 }
 async function init() {
+  const found = [];
   const [f1] = await Promise.all([
     document.fonts.load("100px BotFont").then(() => true, () => false),
-    Promise.all(["1", "2"].map(k => loadImg(`logo${k}.png`).then(i => logos[k] = cropLogo(i), () => {})))
+    Promise.all(["1", "2", "3"].map(k => loadImg(`logo${k}.png`).then(i => { logos[k] = cropLogo(i); found.push(k); }, () => {})))
   ]);
+  found.sort();
+  if (!logos[S.logo]) S.logo = found[0] || "1";
+  const box = $("logos");
+  box.classList.toggle("many", found.length > 2);
+  for (const k of found) {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.v = k; b.setAttribute("aria-pressed", k === S.logo);
+    b.innerHTML = `<span class="thumb"><img src="logo${k}.png" alt=""></span>Logo ${k}`; box.appendChild(b);
+  }
   fontReady = f1; render();
 }
 function wrap(x, text, maxW) {
@@ -294,13 +295,12 @@ function geom() {
   return { sx: Math.round((bw - sw) * S.fx), sy: Math.round((bh - sh) * S.fy), sw, sh };
 }
 // Bitta chizish funksiyasi: ko'rinish (kichik) ham, yuboriladigan rasm (to'liq) ham shundan chiqadi
-function paint(c, maxDim, plain) {
+function paint(c, maxDim) {
   const g = geom(), s = Math.min(1, maxDim / Math.max(g.sw, g.sh));
   const w = Math.max(1, Math.round(g.sw * s)), h = Math.max(1, Math.round(g.sh * s));
   if (c.width !== w) c.width = w; if (c.height !== h) c.height = h;
   const x = c.getContext("2d");
   x.drawImage(base, g.sx, g.sy, g.sw, g.sh, 0, 0, w, h);
-  if (plain) return;
   const logo = logos[S.logo];
   if (logo) {
     let lh = Math.round(w * LOGO_H * S.lscale), lw = Math.max(1, Math.round(logo.width * lh / logo.height));
@@ -328,11 +328,11 @@ function paint(c, maxDim, plain) {
 let raf = 0;
 function updatePan() {
   const g = geom(); pannable = !!S.aspect && (base.width - g.sw > 1 || base.height - g.sh > 1);
-  cv.style.touchAction = (pannable || cmp) ? "none" : ""; cv.style.cursor = cmp ? "ew-resize" : pannable ? "grab" : "";
+  cv.style.touchAction = pannable ? "none" : ""; cv.style.cursor = pannable ? "grab" : "";
   $("hint").textContent = !hasImg ? "Rasm tanlangach, kadrni sudrab siljitish mumkin bo'ladi."
     : pannable ? "Kadrni siljitish uchun rasmni barmoq bilan sudrang." : "Kadr rasmga mos, siljitish shart emas.";
 }
-function render() { if (!hasImg || raf) return; raf = requestAnimationFrame(() => { raf = 0; paint(cv, PREVIEW_MAX, showOrig); if (cmp) drawCompare(); updatePan(); }); }
+function render() { if (!hasImg || raf) return; raf = requestAnimationFrame(() => { raf = 0; paint(cv, PREVIEW_MAX); updatePan(); }); }
 const exportBlob = () => { const c = document.createElement("canvas"); paint(c, EXPORT_MAX); return new Promise(r => c.toBlob(r, "image/jpeg", .92)); };
 
 let tt;
@@ -361,16 +361,15 @@ dz.addEventListener("drop", e => setImage(e.dataTransfer.files[0]));
 
 // ---- Kadrni sudrab siljitish ----
 let drag = null;
-cv.addEventListener("pointerdown", e => { if (cmp) { drag = { cmp: true }; cv.setPointerCapture(e.pointerId); setSplit(e); return; } if (!pannable) return; drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; });
+cv.addEventListener("pointerdown", e => { if (!pannable) return; drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; });
 cv.addEventListener("pointermove", e => {
   if (!drag) return;
-  if (drag.cmp) { setSplit(e); return; }
   const g = geom(), k = g.sw / cv.getBoundingClientRect().width, rx = base.width - g.sw, ry = base.height - g.sh;
   if (rx > 0) S.fx = Math.min(1, Math.max(0, S.fx - (e.clientX - drag.x) * k / rx));
   if (ry > 0) S.fy = Math.min(1, Math.max(0, S.fy - (e.clientY - drag.y) * k / ry));
   drag.x = e.clientX; drag.y = e.clientY; render();
 });
-["pointerup", "pointercancel"].forEach(n => cv.addEventListener(n, () => { drag = null; if (pannable && !cmp) cv.style.cursor = "grab"; }));
+["pointerup", "pointercancel"].forEach(n => cv.addEventListener(n, () => { drag = null; if (pannable) cv.style.cursor = "grab"; }));
 
 // ---- Boshqaruv ----
 $("caption").oninput = () => { $("count").textContent = $("caption").value.length; render(); };
@@ -407,32 +406,6 @@ function syncUI() {
 }
 syncUI();
 
-// ---- Oldin / keyin: surgich bilan solishtirish ----
-const origBtn = $("orig"), tmp = document.createElement("canvas");
-origBtn.onclick = () => { cmp = !cmp; split = .5; origBtn.classList.toggle("on", cmp); render(); hap("impactOccurred", "light"); };
-function setSplit(e) { const r = cv.getBoundingClientRect(); split = Math.min(.98, Math.max(.02, (e.clientX - r.left) / r.width)); render(); }
-function drawCompare() {
-  const w = cv.width, h = cv.height, x = cv.getContext("2d"), sx = Math.round(split * w);
-  paint(tmp, PREVIEW_MAX, true);                       // chap tomon: asl rasm
-  x.drawImage(tmp, 0, 0, sx, h, 0, 0, sx, h);
-  const lw = Math.max(2, w * .004), r = Math.max(14, w * .036);
-  x.save(); x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = lw * 4; x.fillStyle = "#fff";
-  x.fillRect(sx - lw / 2, 0, lw, h); x.beginPath(); x.arc(sx, h / 2, r, 0, 6.283); x.fill(); x.restore();
-  x.strokeStyle = "#1f6a40"; x.lineWidth = Math.max(2, r * .16); x.lineCap = x.lineJoin = "round";
-  const a = r * .42; x.beginPath();
-  x.moveTo(sx - a * .3, h / 2 - a); x.lineTo(sx - a * 1.3, h / 2); x.lineTo(sx - a * .3, h / 2 + a);
-  x.moveTo(sx + a * .3, h / 2 - a); x.lineTo(sx + a * 1.3, h / 2); x.lineTo(sx + a * .3, h / 2 + a); x.stroke();
-  const fs = Math.max(12, Math.round(w * .03)), pad = fs * .6, py = h / 2 + r * 1.7;
-  x.font = `600 ${fs}px -apple-system, "Segoe UI", Roboto, sans-serif`; x.textBaseline = "middle";
-  const pill = (t, edge, right) => {
-    const tw = x.measureText(t).width + pad * 2, bx = right ? edge - tw : edge;
-    if (bx < 0 || bx + tw > w) return;
-    x.fillStyle = "rgba(7,17,13,.72)"; x.beginPath();
-    if (x.roundRect) x.roundRect(bx, py - fs, tw, fs * 2, fs); else x.rect(bx, py - fs, tw, fs * 2);
-    x.fill(); x.fillStyle = "#fff"; x.textAlign = "left"; x.fillText(t, bx + pad, py + 1);
-  };
-  pill("Oldin", sx - r * 1.2, true); pill("Keyin", sx + r * 1.2, false);
-}
 const tabs = $("tabs"), tabBtns = [...tabs.querySelectorAll("button")];
 tabs.onclick = e => {
   const b = e.target.closest("button"); if (!b) return;
