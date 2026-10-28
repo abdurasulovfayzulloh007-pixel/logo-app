@@ -125,7 +125,7 @@ box-shadow:0 10px 30px rgba(61,220,132,.4),inset 0 1px 0 rgba(255,255,255,.4),in
     <div class="tabs" id="tabs" role="tablist"><i class="ind"></i>
       <button role="tab" aria-selected="true" data-t="text" type="button">Matn</button>
       <button role="tab" aria-selected="false" data-t="logo" type="button">Logo</button>
-      <button role="tab" aria-selected="false" data-t="crop" type="button">Kadr</button>
+      <button role="tab" aria-selected="false" data-t="crop" type="button">Rasm</button>
       <button role="tab" aria-selected="false" data-t="rm" type="button">Eski logo</button>
     </div>
 
@@ -136,13 +136,13 @@ box-shadow:0 10px 30px rgba(61,220,132,.4),inset 0 1px 0 rgba(255,255,255,.4),in
         <button type="button" data-v="black" aria-pressed="true"><span class="sw" style="background:#000"></span>Qora</button>
         <button type="button" data-v="white" aria-pressed="false"><span class="sw" style="background:#fff"></span>Oq</button></div></div>
       <div><div class="fh"><label for="size">Matn o'lchami</label><span id="sizeV">100%</span></div><input type="range" id="size" min="70" max="180" step="5" value="100"></div>
-      <div><div class="fh">Matn joyi</div><div class="grid9" id="gText"></div></div>
+      <div class="two"><p class="note" style="align-self:center">Matnni rasm ustida barmoq bilan siljiting.</p><button class="act" id="resText" type="button">Joyini tiklash</button></div>
     </section>
 
     <section class="pane" data-p="logo" hidden>
       <div><div class="fh">Logo tanlang</div><div class="seg" id="logos"></div></div>
       <div><div class="fh"><label for="lsize">Logo o'lchami</label><span id="lsizeV">100%</span></div><input type="range" id="lsize" min="50" max="170" step="5" value="100"></div>
-      <div><div class="fh">Logo joyi</div><div class="grid9" id="gLogo"></div></div>
+      <div class="two"><p class="note" style="align-self:center">Logoni rasm ustida barmoq bilan siljiting.</p><button class="act" id="resLogo" type="button">Joyini tiklash</button></div>
     </section>
 
     <section class="pane" data-p="crop" hidden>
@@ -152,6 +152,9 @@ box-shadow:0 10px 30px rgba(61,220,132,.4),inset 0 1px 0 rgba(255,255,255,.4),in
         <button type="button" data-v="0.8" aria-pressed="false"><i class="ar" style="--r:.8"></i>4:5</button>
         <button type="button" data-v="0.5625" aria-pressed="false"><i class="ar" style="--r:.5625"></i>9:16</button></div></div>
       <p class="note" id="hint"></p>
+      <div><div class="fh">Rasmni burish</div><div class="two"><button class="act" id="rotL" type="button" disabled>Chapga 90°</button><button class="act" id="rotR" type="button" disabled>O'ngga 90°</button></div></div>
+      <div><div class="fh">Saqlash formati</div><div class="seg" id="fmt"><button type="button" data-v="jpg" aria-pressed="true">JPG</button><button type="button" data-v="png" aria-pressed="false">PNG</button></div></div>
+      <div><div class="fh"><label for="qual">JPG sifati</label><span id="qualV">92%</span></div><input type="range" id="qual" min="60" max="100" step="2" value="92"></div>
     </section>
 
     <section class="pane" data-p="rm" hidden>
@@ -250,8 +253,8 @@ $("theme").onclick = () => { applyTheme(document.documentElement.dataset.theme =
 const LOGO_H = .094, LOGO_MAXW = .5, LOGO_M = .025, CAP = .027, TX = .034, TY = .023, TMAXW = .85;
 const BASE_MAX = 2400, PREVIEW_MAX = 1000, LOW_MAX = 560, EXPORT_MAX = 1920;
 const cv = $("cv"), base = document.createElement("canvas"), bctx = base.getContext("2d", { willReadFrequently: true });
-const S = { logo: "1", color: "black", tscale: 1, lscale: 1, lpos: "tl", tpos: "br", aspect: 0, fx: .5, fy: .5, autoRm: false };
-let hasImg = false, fontReady = false, pannable = false, selMode = false, selStart = null, selRect = null, busy = false, low = false;
+const S = { logo: "1", color: "black", tscale: 1, lscale: 1, lp: null, tp: null, fmt: "jpg", q: 92, aspect: 0, fx: .5, fy: .5, autoRm: false };
+let hit = {}, hasImg = false, fontReady = false, pannable = false, selMode = false, selStart = null, selRect = null, busy = false, low = false;
 const logos = {}, undoStack = [];
 
 try {
@@ -260,12 +263,13 @@ try {
   if (o.color === "black" || o.color === "white") S.color = o.color;
   if (num(o.tscale, .7, 1.8)) S.tscale = o.tscale;
   if (num(o.lscale, .5, 1.7)) S.lscale = o.lscale;
-  if (/^[tmb][lcr]$/.test(o.lpos || "")) S.lpos = o.lpos;
-  if (/^[tmb][lcr]$/.test(o.tpos || "")) S.tpos = o.tpos;
+  const pt = p => p && num(p.x, -.5, 1.5) && num(p.y, -.5, 1.5) ? { x: p.x, y: p.y } : null;
+  S.lp = pt(o.lp); S.tp = pt(o.tp);
+  if (o.fmt === "png") S.fmt = "png"; if (num(o.q, 60, 100)) S.q = o.q;
   if ([0, 1, .8, .5625].includes(o.aspect)) S.aspect = o.aspect;
   if (typeof o.autoRm === "boolean") S.autoRm = o.autoRm;
 } catch (e) {}
-const persist = () => store.set("settings", JSON.stringify({ logo: S.logo, color: S.color, tscale: S.tscale, lscale: S.lscale, lpos: S.lpos, tpos: S.tpos, aspect: S.aspect, autoRm: S.autoRm }));
+const persist = () => store.set("settings", JSON.stringify({ logo: S.logo, color: S.color, tscale: S.tscale, lscale: S.lscale, lp: S.lp, tp: S.tp, fmt: S.fmt, q: S.q, aspect: S.aspect, autoRm: S.autoRm }));
 
 const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 function cropLogo(im) {
@@ -310,33 +314,35 @@ function paint(c, maxDim) {
   const g = geom(), s = Math.min(1, maxDim / Math.max(g.sw, g.sh));
   const w = Math.max(1, Math.round(g.sw * s)), h = Math.max(1, Math.round(g.sh * s));
   if (c.width !== w) c.width = w; if (c.height !== h) c.height = h;
+  const hb = c === cv ? (hit = {}) : {};
   const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(base, g.sx, g.sy, g.sw, g.sh, 0, 0, w, h);
   const logo = logos[S.logo];
   if (logo) {
     let lh = Math.round(w * LOGO_H * S.lscale), lw = Math.max(1, Math.round(logo.width * lh / logo.height)); const mw = Math.round(w * LOGO_MAXW);
     if (lw > mw) { lw = mw; lh = Math.max(1, Math.round(logo.height * lw / logo.width)); }
-    const m = Math.round(w * LOGO_M), r = S.lpos[0], k = S.lpos[1];
-    x.drawImage(logo, Math.round(k === "l" ? m : k === "c" ? (w - lw) / 2 : w - lw - m), Math.round(r === "t" ? m : r === "m" ? (h - lh) / 2 : h - lh - m), lw, lh);
+    const m = Math.round(w * LOGO_M), lx = S.lp ? S.lp.x * w : m, ly = S.lp ? S.lp.y * h : m;
+    x.drawImage(logo, Math.round(lx), Math.round(ly), lw, lh); hb.logo = { x: lx, y: ly, w: lw, h: lh };
   }
   const text = $("caption").value.trim(); if (!text) return;
   const fam = fontReady ? "BotFont" : "Arial, sans-serif";
   x.font = `bold 100px ${fam}`; x.textBaseline = "alphabetic";
   const cap100 = Math.max(x.measureText("H").actualBoundingBoxAscent, 1), cap = w * CAP * S.tscale, size = Math.max(8, Math.round(100 * cap / cap100));
   x.font = `bold ${size}px ${fam}`; x.fillStyle = S.color;
-  const r = S.tpos[0], k = S.tpos[1], mx = w * TX, my = w * TY;
-  x.textAlign = k === "l" ? "left" : k === "c" ? "center" : "right";
-  const px = k === "l" ? mx : k === "c" ? w / 2 : w - mx, lines = wrap(x, text, w * TMAXW), lh2 = size * 1.2, block = (lines.length - 1) * lh2 + cap;
-  let y = r === "t" ? my + cap : r === "m" ? (h - block) / 2 + cap : h - my - (lines.length - 1) * lh2;
-  for (const ln of lines) { x.fillText(ln, px, y); y += lh2; }
+  const mx = w * TX, my = w * TY, lines = wrap(x, text, w * TMAXW), lh2 = size * 1.2, block = (lines.length - 1) * lh2 + cap;
+  const bw = Math.max(1, ...lines.map(l => x.measureText(l).width));
+  const bx = Math.max(0, Math.min(S.tp ? S.tp.x * w : w - mx - bw, w - bw)), by = Math.max(0, Math.min(S.tp ? S.tp.y * h : h - my - block, h - block));
+  x.textAlign = "right"; let y = by + cap;
+  for (const ln of lines) { x.fillText(ln, bx + bw, y); y += lh2; }
+  hb.text = { x: bx, y: by, w: bw, h: block };
 }
 let raf = 0, idleT = 0;
 function updatePan() {
   const g = geom(); pannable = !!S.aspect && (base.width - g.sw > 1 || base.height - g.sh > 1);
-  cv.style.touchAction = (pannable || selMode) ? "none" : ""; cv.style.cursor = selMode ? "crosshair" : pannable ? "grab" : "";
+  cv.style.touchAction = hasImg ? "none" : ""; cv.style.cursor = selMode ? "crosshair" : pannable ? "grab" : "";
   $("hint").textContent = !hasImg ? "Rasm tanlangach, kadrni sudrab siljitish mumkin bo'ladi." : pannable ? "Kadrni siljitish uchun rasmni barmoq bilan sudrang." : "Kadr rasmga mos, siljitish shart emas.";
 }
 function render() { if (!hasImg || raf) return; raf = requestAnimationFrame(() => { raf = 0; paint(cv, low ? LOW_MAX : PREVIEW_MAX); drawSel(); updatePan(); }); }
-const exportBlob = () => { const c = document.createElement("canvas"); paint(c, EXPORT_MAX); return new Promise(r => c.toBlob(r, "image/jpeg", .92)); };
+const exportBlob = () => { const c = document.createElement("canvas"); paint(c, EXPORT_MAX); return new Promise(r => c.toBlob(r, S.fmt === "png" ? "image/png" : "image/jpeg", S.q / 100)); };
 
 let tt;
 function toast(msg, err) { const t = $("toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : ""); clearTimeout(tt); tt = setTimeout(() => t.className = "toast", 3200); }
@@ -350,7 +356,7 @@ async function setImage(f) {
     let bmp; try { bmp = await createImageBitmap(f, { imageOrientation: "from-image" }); } catch (e) { bmp = await loadImg(URL.createObjectURL(f)); }
     const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, s = Math.min(1, BASE_MAX / Math.max(w0, h0));
     base.width = Math.round(w0 * s); base.height = Math.round(h0 * s); bctx.drawImage(bmp, 0, 0, base.width, base.height); if (bmp.close) bmp.close();
-    undoStack.length = 0; S.fx = S.fy = .5; hasImg = true; $("stage").classList.add("has-img"); $("save").disabled = $("send").disabled = false;
+    undoStack.length = 0; S.fx = S.fy = .5; hasImg = true; $("stage").classList.add("has-img"); $("save").disabled = $("send").disabled = $("rotL").disabled = $("rotR").disabled = false;
     cv.style.animation = "none"; void cv.offsetWidth; cv.style.animation = "";
     selMode = false; selRect = null; $("rmManual").classList.remove("on"); setBusy(false);
     $("rmUndo").disabled = true; note("Tayyor. «Eski logoni o'chirish» ni bosing.");
@@ -366,15 +372,29 @@ dz.addEventListener("drop", e => setImage(e.dataTransfer.files[0]));
 addEventListener("paste", e => { const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith("image/")); if (f) setImage(f); });
 
 // ---- Kadrni siljitish va belgilash (bitta pointer tizimi) ----
-let drag = null;
+let drag = null, item = null;
 const selPt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
 cv.addEventListener("pointerdown", e => {
   cv.setPointerCapture(e.pointerId);
   if (selMode) { const [x, y] = selPt(e); selStart = [x, y]; selRect = [x, y, x, y]; render(); }
-  else if (pannable) { drag = { x: e.clientX, y: e.clientY }; low = true; cv.style.cursor = "grabbing"; }
+  else {
+    const [px, py] = selPt(e), pad = cv.width * .02; let k = null;
+    for (const n of ["text", "logo"]) { const b = hit[n]; if (b && px >= b.x - pad && px <= b.x + b.w + pad && py >= b.y - pad && py <= b.y + b.h + pad) { k = n; break; } }
+    if (k) {
+      const b = hit[k], P = { x: b.x / cv.width, y: b.y / cv.height };
+      if (k === "logo" && !S.lp) S.lp = P; if (k === "text" && !S.tp) S.tp = P;
+      item = { k, px, py }; low = true; cv.style.cursor = "grabbing"; hap("impactOccurred", "light");
+    } else if (pannable) { drag = { x: e.clientX, y: e.clientY }; low = true; cv.style.cursor = "grabbing"; }
+  }
 });
 cv.addEventListener("pointermove", e => {
   if (selStart) { const [x, y] = selPt(e); selRect = [selStart[0], selStart[1], x, y]; render(); }
+  else if (item) {
+    const [px, py] = selPt(e), b = hit[item.k], p = item.k === "logo" ? S.lp : S.tp;
+    p.x = Math.min(1 - b.w / cv.width, Math.max(0, p.x + (px - item.px) / cv.width));
+    p.y = Math.min(1 - b.h / cv.height, Math.max(0, p.y + (py - item.py) / cv.height));
+    item.px = px; item.py = py; render();
+  }
   else if (drag) {
     const g = geom(), k = g.sw / cv.getBoundingClientRect().width, rx = base.width - g.sw, ry = base.height - g.sh;
     if (rx > 0) S.fx = Math.min(1, Math.max(0, S.fx - (e.clientX - drag.x) * k / rx));
@@ -383,6 +403,7 @@ cv.addEventListener("pointermove", e => {
   }
 });
 ["pointerup", "pointercancel"].forEach(n => cv.addEventListener(n, () => {
+  if (item) { item = null; low = false; persist(); cv.style.cursor = pannable ? "grab" : ""; render(); }
   if (drag) { drag = null; low = false; cv.style.cursor = "grab"; render(); }
   if (selStart) endSel();
 }));
@@ -401,18 +422,12 @@ function seg(id, cb) {
     $(id).querySelectorAll("button").forEach(z => z.setAttribute("aria-pressed", z === b)); cb(b.dataset.v); persist(); render(); hap("selectionChanged"); };
 }
 seg("logos", v => S.logo = v); seg("colors", v => S.color = v); seg("aspects", v => { S.aspect = +v || 0; S.fx = S.fy = .5; });
-function grid(id, init, cb) {
-  const el = $(id), R = { t: "Yuqori", m: "O'rta", b: "Pastki" }, C = { l: "chap", c: "markaz", r: "o'ng" };
-  for (const a of ["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]) {
-    const b = document.createElement("button"); b.type = "button"; b.dataset.v = a; b.setAttribute("aria-label", R[a[0]] + " " + C[a[1]]); b.setAttribute("aria-pressed", a === init); el.appendChild(b);
-  }
-  el.onclick = e => { const b = e.target.closest("button"); if (!b) return;
-    el.querySelectorAll("button").forEach(z => z.setAttribute("aria-pressed", z === b)); cb(b.dataset.v); persist(); render(); hap("selectionChanged"); };
-}
-grid("gLogo", S.lpos, v => S.lpos = v); grid("gText", S.tpos, v => S.tpos = v);
+$("resLogo").onclick = () => { S.lp = null; persist(); render(); };
+$("resText").onclick = () => { S.tp = null; persist(); render(); };
 (function syncUI() {
   const mark = (id, test) => $(id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", test(b.dataset.v)));
-  mark("colors", v => v === S.color); mark("aspects", v => +v === S.aspect); $("autoRm").checked = S.autoRm;
+  mark("colors", v => v === S.color); mark("aspects", v => +v === S.aspect); mark("fmt", v => v === S.fmt); $("autoRm").checked = S.autoRm;
+  $("qual").value = S.q; $("qualV").textContent = S.q + "%"; $("qual").disabled = S.fmt === "png";
   $("size").value = Math.round(S.tscale * 100); $("sizeV").textContent = $("size").value + "%";
   $("lsize").value = Math.round(S.lscale * 100); $("lsizeV").textContent = $("lsize").value + "%"; updatePan();
 })();
@@ -488,6 +503,19 @@ $("rmUndo").onclick = () => { const u = undoStack.pop(); if (!u) return; bctx.pu
   $("rmUndo").disabled = !undoStack.length; render(); note(undoStack.length ? "Oxirgi o'zgarish qaytarildi." : "Asl rasm qaytarildi."); };
 $("autoRm").onchange = e => { S.autoRm = e.target.checked; persist(); };
 
+// ---- Burish va format ----
+function rotate(d) {
+  if (!hasImg || busy) return;
+  const t = document.createElement("canvas"); t.width = base.height; t.height = base.width; const x = t.getContext("2d");
+  x.translate(t.width / 2, t.height / 2); x.rotate(d * Math.PI / 2); x.drawImage(base, -base.width / 2, -base.height / 2);
+  base.width = t.width; base.height = t.height; bctx.drawImage(t, 0, 0);
+  undoStack.length = 0; $("rmUndo").disabled = true; S.fx = S.fy = .5; render(); hap("impactOccurred", "light");
+}
+$("rotL").onclick = () => rotate(-1); $("rotR").onclick = () => rotate(1);
+seg("fmt", v => { S.fmt = v; $("qual").disabled = v === "png"; });
+$("qual").oninput = e => { S.q = +e.target.value; $("qualV").textContent = S.q + "%"; persist(); };
+const ext = () => S.fmt === "png" ? "png" : "jpg";
+
 // ---- Bo'limlar ----
 const tabs = $("tabs"), tabBtns = [...tabs.querySelectorAll("button")];
 tabs.onclick = e => {
@@ -498,9 +526,9 @@ tabs.onclick = e => {
 
 // ---- Saqlash va yuborish ----
 $("save").onclick = async () => {
-  const blob = await exportBlob(), file = new File([blob], "result.jpg", { type: "image/jpeg" });
+  const blob = await exportBlob(), file = new File([blob], `result.${ext()}`, { type: blob.type });
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; } } catch (e) { return; }
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "result.jpg"; document.body.appendChild(a); a.click(); a.remove();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `result.${ext()}`; document.body.appendChild(a); a.click(); a.remove();
   toast("Yuklanmasa, «Botga yuborish» dan foydalaning.");
 };
 $("send").onclick = async () => {
@@ -513,8 +541,8 @@ $("send").onclick = async () => {
   btn.disabled = true; lab.innerHTML = '<span class="spin"></span>Yuborilmoqda';
   try {
     const blob = await exportBlob(), fd = new FormData(); let url;
-    if (api) { url = API_URL; fd.append("initData", tg.initData); fd.append("file", blob, "result.jpg"); }
-    else { url = `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`; fd.append("chat_id", user.id); fd.append("document", blob, "result.jpg"); }
+    if (api) { url = API_URL; fd.append("initData", tg.initData); fd.append("file", blob, `result.${ext()}`); }
+    else { url = `https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`; fd.append("chat_id", user.id); fd.append("document", blob, `result.${ext()}`); }
     const j = await (await fetch(url, { method: "POST", body: fd })).json();
     if (j.ok) { btn.classList.add("ok"); lab.textContent = "Yuborildi ✓"; hap("notificationOccurred", "success"); toast("Bot chatiga yuborildi."); }
     else { lab.textContent = idle; hap("notificationOccurred", "error"); toast("Yuborilmadi: botda Start tugmasini bosing.", true); }
