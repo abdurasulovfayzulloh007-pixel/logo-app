@@ -206,17 +206,19 @@ function inpaint(px,m,W,H){
 }
 function find(d){
   const {D,sw,sh,cands,R}=d;
-  const score=(Sm,x0,y0)=>{let t=0;const n=Sm.length/5;
+  const score=(Sm,x0,y0,cut)=>{let t=0;const n=Sm.length/5,lim=cut*3*n;
     for(let k=0;k<Sm.length;k+=5){const x=x0+Sm[k],y=y0+Sm[k+1];if(x<0||y<0||x>=sw||y>=sh)return 1e9;
-      const i=(y*sw+x)*4;t+=Math.abs(D[i]-Sm[k+2])+Math.abs(D[i+1]-Sm[k+3])+Math.abs(D[i+2]-Sm[k+4])}
+      const i=(y*sw+x)*4;t+=Math.abs(D[i]-Sm[k+2])+Math.abs(D[i+1]-Sm[k+3])+Math.abs(D[i+2]-Sm[k+4]);if(t>lim)return 1e9}
     return t/(3*n)};
   const per=cands.map(c=>{let b={s:1e9,x:0,y:0};
-    for(const [ex,ey] of c.st)for(let dy=-R;dy<=R;dy+=3)for(let dx=-R;dx<=R;dx+=3){const s=score(c.S,ex+dx,ey+dy);if(s<b.s)b={s,x:ex+dx,y:ey+dy}}
+    for(const [ex,ey] of c.st)for(let dy=-R;dy<=R;dy+=3)for(let dx=-R;dx<=R;dx+=3){const s=score(c.S,ex+dx,ey+dy,b.s);if(s<b.s)b={s,x:ex+dx,y:ey+dy}}
     return b});
-  let bi=0;per.forEach((p,i)=>{if(p.s<per[bi].s)bi=i});
+  let min=1e9;per.forEach(p=>{if(p.s<min)min=p.s});
+  let bi=0;per.forEach((p,i)=>{if(p.s<=min+3)bi=i});  /* bir xil rangli logoda kichik nusxa ichkarida mos tushadi: eng kattasini tanlaymiz */
   let best={s:1e9};
-  for(const i of [bi-1,bi,bi+1]){if(!cands[i])continue;const c=cands[i],p=per[i];
-    for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const s=score(c.S,p.x+dx,p.y+dy);if(s<best.s)best={s,tw:c.tw,th:c.th,x:p.x+dx,y:p.y+dy}}}
+  for(const i of [bi+1,bi,bi-1]){const c=cands[i];if(!c)continue;const p=per[i];let cb={s:1e9};
+    for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const s=score(c.S,p.x+dx,p.y+dy,cb.s);if(s<cb.s)cb={s,x:p.x+dx,y:p.y+dy}}
+    if(cb.s<best.s-1)best={s:cb.s,tw:c.tw,th:c.th,x:cb.x,y:cb.y}}
   return best;
 }
 onmessage=e=>{const d=e.data;
