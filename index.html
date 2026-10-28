@@ -204,6 +204,47 @@ function inpaint(px,m,W,H){
   for(const i of idx){const nz=sigma>.8?(Math.random()+Math.random()+Math.random()-1.5)*1.8*sigma:0;
     for(let c=0;c<3;c++)px[i*4+c]=f[i*3+c]+nz}
 }
+function patch(px,m,W,H){
+  const N=W*H,known=new Uint8Array(N);let left=0;
+  for(let i=0;i<N;i++){if(m[i])left++;else known[i]=1}
+  if(!left||left===N)return false;
+  const hp=4,G=3,W1=W+1,I=new Int32Array(W1*(H+1));
+  for(let y=0;y<H;y++){let r=0;for(let x=0;x<W;x++){r+=m[y*W+x];I[(y+1)*W1+x+1]=I[y*W1+x+1]+r}}
+  const sum=(x0,y0,x1,y1)=>I[y1*W1+x1]-I[y0*W1+x1]-I[y1*W1+x0]+I[y0*W1+x0];
+  const rows=[],ne=[];
+  for(let cy=hp;cy<H-hp;cy+=G){const r=[];for(let cx=hp;cx<W-hp;cx+=G)if(!sum(cx-hp,cy-hp,cx+hp+1,cy+hp+1))r.push(cx);if(r.length)ne.push(rows.length);rows.push({cy,r})}
+  if(!ne.length)return false;
+  const P2=(2*hp+1)**2,tx=new Int16Array(P2),ty=new Int16Array(P2),tc=new Int16Array(P2*3),K=500;
+  const cnt=(x,y)=>{let c=0;for(let dy=-hp;dy<=hp;dy++){const yy=y+dy;if(yy<0||yy>=H)continue;for(let dx=-hp;dx<=hp;dx++){const xx=x+dx;if(xx>=0&&xx<W&&known[yy*W+xx])c++}}return c};
+  let unk=[];for(let i=0;i<N;i++)if(m[i])unk.push(i);
+  for(let pass=0;left>0&&pass<800;pass++){
+    unk=unk.filter(i=>!known[i]);
+    const bl=[];
+    for(const i of unk){const x=i%W,y=(i/W)|0;
+      if((x>0&&known[i-1])||(x<W-1&&known[i+1])||(y>0&&known[i-W])||(y<H-1&&known[i+W]))bl.push([cnt(x,y),i])}
+    if(!bl.length)break;
+    bl.sort((a,b)=>b[0]-a[0]);
+    for(const e of bl){
+      const i=e[1];if(known[i])continue;
+      const x=i%W,y=(i/W)|0;let n=0;
+      for(let dy=-hp;dy<=hp;dy++){const yy=y+dy;if(yy<0||yy>=H)continue;for(let dx=-hp;dx<=hp;dx++){const xx=x+dx;if(xx<0||xx>=W||!known[yy*W+xx])continue;
+        const j=(yy*W+xx)*4;tx[n]=dx;ty[n]=dy;tc[n*3]=px[j];tc[n*3+1]=px[j+1];tc[n*3+2]=px[j+2];n++}}
+      let best=1e18,bx=-1,by=-1;
+      for(let t=0;t<K;t++){
+        let R;
+        if(t&1){R=rows[Math.min(rows.length-1,Math.max(0,Math.round((y-hp)/G)+((Math.random()*9)|0)-4))];if(!R.r.length)continue}
+        else R=rows[ne[(Math.random()*ne.length)|0]];
+        const cx=R.r[(Math.random()*R.r.length)|0],cy=R.cy;let sc=0,k=0;
+        for(;k<n;k++){const j=((cy+ty[k])*W+cx+tx[k])*4,a=px[j]-tc[k*3],b=px[j+1]-tc[k*3+1],c=px[j+2]-tc[k*3+2];sc+=a*a+b*b+c*c;if(sc>=best)break}
+        if(k===n&&sc<best){best=sc;bx=cx;by=cy}}
+      if(bx<0)continue;
+      for(let dy=-hp;dy<=hp;dy++){const yy=y+dy;if(yy<0||yy>=H)continue;for(let dx=-hp;dx<=hp;dx++){const xx=x+dx;if(xx<0||xx>=W)continue;const q=yy*W+xx;if(known[q])continue;
+        const j=q*4,o=((by+dy)*W+bx+dx)*4;px[j]=px[o];px[j+1]=px[o+1];px[j+2]=px[o+2];known[q]=1;left--}}
+    }
+  }
+  if(left>0){const m2=new Uint8Array(N);for(let i=0;i<N;i++)m2[i]=known[i]?0:1;inpaint(px,m2,W,H)}
+  return true;
+}
 function find(d){
   const {D,sw,sh,cands,R}=d;
   const score=(Sm,x0,y0,cut)=>{let t=0;const n=Sm.length/5,lim=cut*3*n;
@@ -222,7 +263,7 @@ function find(d){
   return best;
 }
 onmessage=e=>{const d=e.data;
-  if(d.type==="inpaint"){inpaint(d.px,d.m,d.W,d.H);postMessage({id:d.id,px:d.px},[d.px.buffer])}
+  if(d.type==="inpaint"){if(!patch(d.px,d.m,d.W,d.H))inpaint(d.px,d.m,d.W,d.H);postMessage({id:d.id,px:d.px},[d.px.buffer])}
   else postMessage({id:d.id,r:find(d)})};
 </script>
 
@@ -443,19 +484,23 @@ function dilate(m, W, H, r) {
 }
 async function erase(x, y, w, h, shape) {
   const bw = base.width, bh = base.height, d = shape ? Math.max(3, Math.round(bw * .006)) : 2, pad = d + 6;
-  const rx = Math.max(0, Math.floor(x - pad)), ry = Math.max(0, Math.floor(y - pad)), rr = Math.min(bw, Math.ceil(x + w + pad)), rb = Math.min(bh, Math.ceil(y + h + pad));
-  const W = rr - rx, H = rb - ry; if (W < 4 || H < 4) return false;
-  const img = bctx.getImageData(rx, ry, W, H), before = new ImageData(new Uint8ClampedArray(img.data), W, H);
-  let m = new Uint8Array(W * H);
+  const sx = Math.max(0, Math.floor(x - pad)), sy = Math.max(0, Math.floor(y - pad)), sr = Math.min(bw, Math.ceil(x + w + pad)), sb = Math.min(bh, Math.ceil(y + h + pad));
+  const sW = sr - sx, sH = sb - sy; if (sW < 4 || sH < 4) return false;
+  let m = new Uint8Array(sW * sH);
   if (shape) {
-    const c = document.createElement("canvas"); c.width = W; c.height = H; const cx = c.getContext("2d", { willReadFrequently: true });
-    cx.drawImage(shape, x - rx, y - ry, w, h); const a = cx.getImageData(0, 0, W, H).data;
-    for (let i = 0; i < W * H; i++) m[i] = a[i * 4 + 3] > 24 ? 1 : 0; m = dilate(m, W, H, d);
-  } else for (let yy = Math.max(0, Math.floor(y - ry)); yy < Math.min(H, Math.ceil(y + h - ry)); yy++) for (let xx = Math.max(0, Math.floor(x - rx)); xx < Math.min(W, Math.ceil(x + w - rx)); xx++) m[yy * W + xx] = 1;
-  const px = img.data, r = await job({ type: "inpaint", px, m, W, H }, [px.buffer]);
+    const c = document.createElement("canvas"); c.width = sW; c.height = sH; const c2 = c.getContext("2d", { willReadFrequently: true });
+    c2.drawImage(shape, x - sx, y - sy, w, h); const a = c2.getImageData(0, 0, sW, sH).data;
+    for (let i = 0; i < sW * sH; i++) m[i] = a[i * 4 + 3] > 24 ? 1 : 0; m = dilate(m, sW, sH, d);
+  } else for (let yy = Math.max(0, Math.floor(y - sy)); yy < Math.min(sH, Math.ceil(y + h - sy)); yy++) for (let xx = Math.max(0, Math.floor(x - sx)); xx < Math.min(sW, Math.ceil(x + w - sx)); xx++) m[yy * sW + xx] = 1;
+  // Atrofdagi fon (kontekst): to'ldirish uchun namuna shu yerdan olinadi
+  const cx = Math.max(0, sx - Math.round(Math.max(40, w * .7))), cy = Math.max(0, sy - Math.round(Math.max(40, h * 1.2)));
+  const W = Math.min(bw, sr + Math.round(Math.max(40, w * .7))) - cx, H = Math.min(bh, sb + Math.round(Math.max(40, h * 1.2))) - cy;
+  const big = new Uint8Array(W * H); for (let yy = 0; yy < sH; yy++) big.set(m.subarray(yy * sW, (yy + 1) * sW), (sy - cy + yy) * W + (sx - cx));
+  const before = bctx.getImageData(sx, sy, sW, sH), px = bctx.getImageData(cx, cy, W, H).data;
+  const r = await job({ type: "inpaint", px, m: big, W, H }, [px.buffer]);
   if (!r) return false;
-  bctx.putImageData(new ImageData(r.px, W, H), rx, ry);
-  undoStack.push({ rx, ry, before }); if (undoStack.length > 10) undoStack.shift(); return true;
+  bctx.putImageData(new ImageData(r.px, W, H), cx, cy, sx - cx, sy - cy, sW, sH);
+  undoStack.push({ rx: sx, ry: sy, before }); if (undoStack.length > 10) undoStack.shift(); return true;
 }
 async function findLogo() {
   const T = logos["1"]; if (!T) return null;
